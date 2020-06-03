@@ -13,6 +13,6 @@ public class FanoutProducer {
 
     public void sendMessage(){
         String message = "hello";
-        rabbitTemplate.convertAndSend(RabbitmqConfiguration.EXCHANGE_FANOUT,"23",message);
+        rabbitTemplate.convertAndSend(RabbitmqConfiguration.EXCHANGE_FANOUT,"",message);
     }
 }

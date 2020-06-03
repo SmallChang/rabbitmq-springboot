@@ -14,10 +14,9 @@ public class DefaultProducer {
     public void sendDefaultMessage(){
         String helloMessage = "default hello";
         String userMessage = "default user";
-        rabbitTemplate.convertAndSend(RabbitmqConfiguration.QUEUE_HELLO,helloMessage);
+        //该队列是普通消费者消费（自动确认）
+//        rabbitTemplate.convertAndSend(RabbitmqConfiguration.QUEUE_HELLO,helloMessage);
+        //该队列是消费者手动确认
         rabbitTemplate.convertAndSend(RabbitmqConfiguration.QUEUE_USER,userMessage);
     }
-
-
-
 }

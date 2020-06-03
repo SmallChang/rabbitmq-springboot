@@ -1,12 +1,13 @@
 package org.cly.rabbitmq.config;
 
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.FanoutExchange;
-import org.springframework.amqp.core.Queue;
+import org.cly.rabbitmq.hello.UserConsumer;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,12 +33,20 @@ public class RabbitmqConfiguration {
     @Value("${spring.rabbitmq.publisher-confirms}")
     private boolean publisherConfirms;
 
+    @Autowired
+    private UserConsumer userConsumer;
+
     public final static String EXCHANGE_FANOUT = "sb.fanout.exchange";
     public final static String EXCHANGE_QUEUE = "sb.fanout.queue";
+
+    public final static String EXCHANGE_TOPIC = "sb.topic.exchange";
+    public final static String QUEUE_TOPIC_EMAIL = "sb.info.email";
+    public final static String QUEUE_TOPIC_USER = "sb.info.user";
+    public final static String RK_EMAIL = "sb.info.email";
+    public final static String RK_USER = "sb.info.user";
+
     public final static String QUEUE_HELLO = "sb.hello";
     public final static String QUEUE_USER = "sb.user";
-
-
 
     /**
      * 连接工厂
@@ -60,11 +69,11 @@ public class RabbitmqConfiguration {
     public RabbitTemplate newRabbitTemplate(){
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory());
         //失败通知
-//        rabbitTemplate.setMandatory(true);
+        rabbitTemplate.setMandatory(true);
         //发送方确认
-//        rabbitTemplate.setConfirmCallback();
+        rabbitTemplate.setConfirmCallback(confirmCallback());
         //失败回调
-//        rabbitTemplate.setReturnCallback();
+        rabbitTemplate.setReturnCallback(returnCallback());
         return rabbitTemplate;
     }
 
@@ -79,6 +88,36 @@ public class RabbitmqConfiguration {
     public Queue userQueue() {
         return new Queue(QUEUE_USER);
     }
+
+
+
+    //============以下是验证Topic Exchange=======
+    @Bean
+    public TopicExchange topicExchange(){
+        return new TopicExchange(EXCHANGE_TOPIC);
+    }
+
+    @Bean
+    public Queue queueEmailMessage() {
+        return new Queue(QUEUE_TOPIC_EMAIL);
+    }
+
+    @Bean
+    public Queue queueUserMessages() {
+        return new Queue(QUEUE_TOPIC_USER);
+    }
+
+    @Bean
+    public Binding topicEmailBindQueue(){
+        return BindingBuilder.bind(queueEmailMessage()).to(topicExchange()).with("sb.*.email");
+    }
+
+    @Bean
+    public Binding topicUserBindQueue(){
+        return BindingBuilder.bind(queueUserMessages()).to(topicExchange()).with("sb.*.user");
+    }
+    //===============以上是验证topic Exchange==========
+
 
 
 
@@ -103,8 +142,56 @@ public class RabbitmqConfiguration {
     //===============以上是验证Fanout Exchange==========
 
 
+    //===============消费者手动应答==========
+    @Bean
+    public SimpleMessageListenerContainer messageContainer() {
+        SimpleMessageListenerContainer container
+                = new SimpleMessageListenerContainer(connectionFactory());
+        container.setQueues(userQueue());
+        container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        container.setMessageListener(userConsumer);
+        return container;
+    }
 
 
+
+    //=============生产者 发送方确认回调==========
+    @Bean
+    public RabbitTemplate.ConfirmCallback confirmCallback(){
+        return new RabbitTemplate.ConfirmCallback() {
+            @Override
+            public void confirm(CorrelationData correlationData, boolean ack, String cause) {
+                if(ack){
+                    System.out.println("发送者确认发送给mq成功");
+                }else {
+                    //处理失败的消息
+                    System.out.println("发送者发送给mq失败,考虑重发:"+cause);
+                }
+
+            }
+        };
+    }
+
+    //=============生产者 失败通知回调==========
+    @Bean
+    public RabbitTemplate.ReturnCallback returnCallback(){
+        return new RabbitTemplate.ReturnCallback() {
+            @Override
+            public void returnedMessage(Message message,
+                                        int replyCode,
+                                        String replyText,
+                                        String exchange,
+                                        String routingKey) {
+                System.out.println("无法路由的消息，需要考虑另外处理。");
+                System.out.println("Returned replyText："+replyText);
+                System.out.println("Returned exchange："+exchange);
+                System.out.println("Returned routingKey："+routingKey);
+                String msgJson  = new String(message.getBody());
+                System.out.println("Returned Message："+msgJson);
+            }
+        };
+
+    }
 
 
 

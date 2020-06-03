@@ -2,6 +2,7 @@ package org.cly.rabbitmq.controller;
 
 import org.cly.rabbitmq.fanout.FanoutProducer;
 import org.cly.rabbitmq.hello.DefaultProducer;
+import org.cly.rabbitmq.topic.TopicProducer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +18,9 @@ public class RabbitTest {
     @Autowired
     private DefaultProducer defaultProducer;
 
+    @Autowired
+    private TopicProducer topicProducer;
+
     @GetMapping("/default")
     public void sendDefaultMessage(){
         defaultProducer.sendDefaultMessage();
@@ -25,6 +29,11 @@ public class RabbitTest {
     @GetMapping("/fanout")
     public void sendFanoutMessage(){
         fanoutProducer.sendMessage();
+    }
+
+    @GetMapping("/topic")
+    public void sendTopicMessage(){
+        topicProducer.sendMessage();
     }
 
 
